@@ -1,7 +1,9 @@
-﻿#include <iostream>
+﻿#include "app/App.h"
 
 int main()
 {
-	std::cout << "Hello CMake." << std::endl;
+	App app{ 600, 400, "Vulkan" };
+	app.init();
+	app.run();
 	return 0;
 }
