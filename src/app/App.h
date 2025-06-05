@@ -1,3 +1,5 @@
+#pragma once
+#include "core/VulkanInstance.h"
 #include <cstdint>
 #include <string>
 
@@ -12,8 +14,8 @@ public:
 	~App();
 	void init();
 	void run();
-	uint32_t get_width() const;
-	uint32_t get_height() const;
+	uint32_t get_width() const noexcept;
+	uint32_t get_height() const noexcept;
 
 	static void key_callback(GLFWwindow* m_window, int key, int scancode, int action, int mods);
 
@@ -21,7 +23,8 @@ private:
 	uint32_t m_width;
 	uint32_t m_height;
 	std::string m_title;
-	GLFWwindow* m_window;
+	GLFWwindow* m_window{nullptr};
+	VulkanInstance m_vk_instance;
 
-	void cleanup();
+	void cleanup() noexcept;
 };
