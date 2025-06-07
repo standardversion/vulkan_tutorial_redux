@@ -23,7 +23,7 @@ VulkanInstance::~VulkanInstance()
 	cleanup();
 }
 
-void VulkanInstance::init()
+void VulkanInstance::create_instance()
 {
 	VkApplicationInfo app_info{};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -67,15 +67,22 @@ void VulkanInstance::init()
 	{
 		throw std::runtime_error("Failed to create Vulkan Instance!");
 	}
+}
+
+void VulkanInstance::init(GLFWwindow* window)
+{
+	create_instance();
 	setup_debug_messenger();
+	create_surface(window);
+	m_device.pick_physical_device(m_instance, m_surface);
+	m_device.create_logical_device(m_instance);
 }
 
 std::vector<VkLayerProperties> VulkanInstance::get_instance_layer_properties() noexcept
 {
 	uint32_t prop_count{};
 	vkEnumerateInstanceLayerProperties(&prop_count, nullptr);
-	std::vector<VkLayerProperties> layer_props{};
-	layer_props.resize(prop_count);
+	std::vector<VkLayerProperties> layer_props(prop_count);
 	vkEnumerateInstanceLayerProperties(&prop_count, layer_props.data());
 	return layer_props;
 }
@@ -107,8 +114,7 @@ std::vector<VkExtensionProperties> VulkanInstance::get_instance_extension_proper
 {
 	uint32_t prop_count{};
 	vkEnumerateInstanceExtensionProperties(nullptr, &prop_count, nullptr);
-	std::vector<VkExtensionProperties> ext_props{};
-	ext_props.resize(prop_count);
+	std::vector<VkExtensionProperties> ext_props(prop_count);
 	vkEnumerateInstanceExtensionProperties(nullptr, &prop_count, ext_props.data());
 	return ext_props;
 }
@@ -203,6 +209,14 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanInstance::debug_callback(
 	return VK_FALSE;
 }
 
+void VulkanInstance::create_surface(GLFWwindow* window)
+{
+	if (glfwCreateWindowSurface(m_instance, window, nullptr, &m_surface) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create surface!");
+	}
+}
+
 VkInstance VulkanInstance::get() const noexcept
 {
 	return m_instance;
@@ -212,6 +226,8 @@ void VulkanInstance::cleanup() noexcept
 {
 	if (m_instance != VK_NULL_HANDLE)
 	{
+		m_device.cleanup();
+		vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 		destroy_debug_messenger();
 		vkDestroyInstance(m_instance, nullptr);
 		m_instance = VK_NULL_HANDLE;

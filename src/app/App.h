@@ -24,7 +24,7 @@ private:
 	uint32_t m_height;
 	std::string m_title;
 	GLFWwindow* m_window{nullptr};
-	VulkanInstance m_vk_instance;
+	VulkanInstance m_instance;
 
 	void cleanup() noexcept;
 };

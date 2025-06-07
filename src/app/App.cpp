@@ -3,7 +3,7 @@
 #include <stdexcept>
 
 App::App(uint32_t w, uint32_t h, std::string m_title)
-	: m_width{ w }, m_height{ h }, m_title{ m_title }, m_vk_instance{ "Vulkan App", 0, 1, 0 }
+	: m_width{ w }, m_height{ h }, m_title{ m_title }, m_instance{ "Vulkan App", 0, 1, 0 }
 {
 	
 }
@@ -31,7 +31,7 @@ void App::init()
 		throw std::runtime_error("Failed to create GLFW Window!");
 	}
 
-	m_vk_instance.init();
+	m_instance.init(m_window);
 }
 
 void App::run()

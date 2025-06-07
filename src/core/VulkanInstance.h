@@ -1,5 +1,7 @@
 #pragma once
+#include "core/VulkanDevice.h"
 #include "vulkan/vulkan.h"
+#include <GLFW/glfw3.h>
 #include <string>
 #include <string_view>
 #include <cstdint>
@@ -16,7 +18,7 @@ public:
 
 	VulkanInstance(std::string_view app_name, uint32_t major, uint32_t minor, uint32_t patch);
 	~VulkanInstance();
-	void init();
+	void init(GLFWwindow* window);
 	[[nodiscard]] VkInstance get() const noexcept;
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
@@ -30,15 +32,19 @@ private:
 	uint32_t m_app_version{ VK_API_VERSION_1_0 };
 	VkInstance m_instance{ VK_NULL_HANDLE };
 	VkDebugUtilsMessengerEXT m_debug_messenger{ VK_NULL_HANDLE };
-	std::vector<const char*> m_requested_validation_layers{ { "VK_LAYER_KHRONOS_validation" } };
-	std::vector<const char*> m_requested_debug_extensions{ { VK_EXT_DEBUG_UTILS_EXTENSION_NAME } };
+	const std::vector<const char*> m_requested_validation_layers{ { "VK_LAYER_KHRONOS_validation" } };
+	const std::vector<const char*> m_requested_debug_extensions{ { VK_EXT_DEBUG_UTILS_EXTENSION_NAME } };
+	VkSurfaceKHR m_surface{ VK_NULL_HANDLE };
+	VulkanDevice m_device{};
 
 	[[nodiscard]] static std::vector<VkLayerProperties> get_instance_layer_properties() noexcept;
 	[[nodiscard]] std::unordered_set<std::string> get_instance_layers_to_enable() const;
 	[[nodiscard]] static std::vector<VkExtensionProperties> get_instance_extension_properties() noexcept;
 	[[nodiscard]] std::unordered_set<std::string> get_instance_extensions_to_enable() const;
 	void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT& info) const noexcept;
+	void create_instance();
 	void setup_debug_messenger();
+	void create_surface(GLFWwindow* window);
 	void destroy_debug_messenger() noexcept;
 	void cleanup() noexcept;
 };
