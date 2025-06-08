@@ -6,7 +6,15 @@
 
 constexpr uint32_t QUEUE_INDEX = 0;
 
-void VulkanDevice::pick_physical_device(VkInstance instance, VkSurfaceKHR surface)
+std::vector<uint32_t> QueueFamilyIndices::get_indices() const noexcept
+{
+	std::vector<uint32_t> indices;
+	if (graphics.has_value()) indices.push_back(graphics.value());
+	if (present.has_value() && present != graphics) indices.push_back(present.value());
+	return indices;
+}
+
+VkResult VulkanDevice::pick_physical_device(VkInstance instance, VkSurfaceKHR surface) noexcept
 {
 	uint32_t physical_device_count{};
 	vkEnumeratePhysicalDevices(instance, &physical_device_count, nullptr);
@@ -56,8 +64,9 @@ void VulkanDevice::pick_physical_device(VkInstance instance, VkSurfaceKHR surfac
 	
 	if (m_physical_device == VK_NULL_HANDLE)
 	{
-		throw std::runtime_error("Failed to find physical device!");
+		return VK_ERROR_INITIALIZATION_FAILED;
 	}
+	return VK_SUCCESS;
 }
 
 bool VulkanDevice::is_device_suitable(VkPhysicalDevice physical_device, VkSurfaceKHR surface) noexcept
@@ -99,16 +108,18 @@ bool VulkanDevice::check_formats_support(VkPhysicalDevice physical_device, VkSur
 	vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &surface_format_count, nullptr);
 	std::vector<VkSurfaceFormatKHR> surface_formats(surface_format_count);
 	vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &surface_format_count, surface_formats.data());
-	std::unordered_set<VkFormat> available_formats;
-	for (const auto& surface_format : surface_formats)
+	for (const auto& requested_format : m_requested_surface_formats)
 	{
-		available_formats.insert(surface_format.format);
+		for (const auto& available_format : surface_formats)
+		{
+			if (available_format.format == requested_format.format
+				&& available_format.colorSpace == requested_format.colorSpace)
+			{
+				return true;
+			}
+		}
 	}
-	for (const auto& format : m_requested_surface_formats)
-	{
-		if (!available_formats.contains(format)) return false;
-	}
-	return true;
+	return false;
 }
 
 bool VulkanDevice::check_present_modes_support(VkPhysicalDevice physical_device, VkSurfaceKHR surface) const noexcept
@@ -130,10 +141,10 @@ bool VulkanDevice::check_present_modes_support(VkPhysicalDevice physical_device,
 	return true;
 }
 
-void VulkanDevice::create_logical_device(VkInstance instance)
+VkResult VulkanDevice::create_logical_device(VkInstance instance) noexcept
 {
 	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-	std::unordered_set<uint32_t> unique_queue_families = { m_queue_families.graphics.value(), m_queue_families.present.value() };
+	std::vector<uint32_t> unique_queue_families{ m_queue_families.get_indices() };
 	// Maintain the actual priority values here (ensures valid memory lifetime)
 	std::vector<float> queue_priorities(unique_queue_families.size(), 1.0f);
 	size_t i = 0;
@@ -150,13 +161,12 @@ void VulkanDevice::create_logical_device(VkInstance instance)
 	device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
 	device_create_info.pQueueCreateInfos = queue_create_infos.data();
 	
-	if (vkCreateDevice(m_physical_device, &device_create_info, nullptr, &m_device) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create logical device!");
-	}
+	VkResult result{ vkCreateDevice(m_physical_device, &device_create_info, nullptr, &m_device) };
+	if (result != VK_SUCCESS) return result;
 
 	vkGetDeviceQueue(m_device, m_queue_families.graphics.value(), QUEUE_INDEX, &m_graphics_queue);
 	vkGetDeviceQueue(m_device, m_queue_families.present.value(), QUEUE_INDEX, &m_present_queue);
+	return VK_SUCCESS;
 }
 
 VkDeviceQueueCreateInfo VulkanDevice::create_queue_create_info(uint32_t queue_family_index, const float* priority) const noexcept
@@ -177,4 +187,59 @@ void VulkanDevice::cleanup()
 		vkDestroyDevice(m_device, nullptr);
 		m_device = VK_NULL_HANDLE;
 	}
+}
+
+VkPhysicalDevice VulkanDevice::get_physical_device() const noexcept
+{
+	return m_physical_device;
+}
+
+VkDevice VulkanDevice::get_logical_device() const noexcept
+{
+	return m_device;
+}
+
+QueueFamilyIndices VulkanDevice::get_queue_family_indices() const noexcept
+{
+	return m_queue_families;
+}
+
+VkSurfaceFormatKHR VulkanDevice::pick_format(const std::vector<VkSurfaceFormatKHR >& preferred_formats) const noexcept
+{
+	for (const auto& format : preferred_formats)
+	{
+		for (const auto& available_format : m_requested_surface_formats)
+		{
+			if (available_format.format == format.format && available_format.colorSpace == format.colorSpace)
+			{
+				return format;
+			}
+		}
+	}
+	return m_requested_surface_formats[0];
+}
+
+VkSurfaceFormatKHR VulkanDevice::pick_format() const noexcept
+{
+	return m_requested_surface_formats[0];
+}
+
+VkPresentModeKHR VulkanDevice::pick_present_mode(const std::vector<VkPresentModeKHR>& preferred_modes) const noexcept
+{
+	for (const auto& mode : preferred_modes)
+	{
+		if (std::find(
+			m_requested_present_modes.begin(), m_requested_present_modes.end(), mode
+		) != m_requested_present_modes.end())
+		{
+			return mode;
+		}
+	}
+	return m_requested_present_modes[0];
+}
+
+VkPresentModeKHR VulkanDevice::pick_present_mode() const noexcept
+{
+
+	return m_requested_present_modes[0];
 }

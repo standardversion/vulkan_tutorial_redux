@@ -23,7 +23,7 @@ VulkanInstance::~VulkanInstance()
 	cleanup();
 }
 
-void VulkanInstance::create_instance()
+VkResult VulkanInstance::create_instance() noexcept
 {
 	VkApplicationInfo app_info{};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -63,19 +63,46 @@ void VulkanInstance::create_instance()
 		create_info.pNext = &debug_msg_info;
 	}
 
-	if (vkCreateInstance(&create_info, nullptr, &m_instance) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create Vulkan Instance!");
-	}
+	return vkCreateInstance(&create_info, nullptr, &m_instance);
 }
 
 void VulkanInstance::init(GLFWwindow* window)
 {
-	create_instance();
-	setup_debug_messenger();
-	create_surface(window);
-	m_device.pick_physical_device(m_instance, m_surface);
-	m_device.create_logical_device(m_instance);
+	if (create_instance() != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create Vulkan Instance!");
+	}
+
+	if (setup_debug_messenger() != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to setup debug messenger");
+	}
+
+	if (create_surface(window) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create surface!");
+	}
+
+	m_device = std::make_unique<VulkanDevice>();
+	if (m_device->pick_physical_device(m_instance, m_surface) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to pick a physical device!");
+	}
+	if (m_device->create_logical_device(m_instance) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create a logical device!");
+	}
+
+	VkPhysicalDevice physical_device{ m_device->get_physical_device() };
+	VkDevice device{ m_device->get_logical_device() };
+	m_swapchain = std::make_unique<VulkanSwapchain>(physical_device, device);
+	VkSurfaceFormatKHR surface_format{ m_device->pick_format() };
+	VkPresentModeKHR present_mode{ m_device->pick_present_mode() };
+	std::vector<uint32_t> queue_family_indices{m_device->get_queue_family_indices().get_indices()};
+	if (m_swapchain->create_swapchain(m_surface, surface_format, present_mode, queue_family_indices) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create swapchain!");
+	}
 }
 
 std::vector<VkLayerProperties> VulkanInstance::get_instance_layer_properties() noexcept
@@ -177,16 +204,13 @@ void VulkanInstance::populate_debug_messenger_create_info(VkDebugUtilsMessengerC
 	info.pfnUserCallback = debug_callback;
 }
 
-void VulkanInstance::setup_debug_messenger()
+VkResult VulkanInstance::setup_debug_messenger()
 {
-	if (!ENABLE_VALIDATION_LAYERS) return;
+	if (!ENABLE_VALIDATION_LAYERS) return VK_SUCCESS;
 	auto func{ (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT") };
 	VkDebugUtilsMessengerCreateInfoEXT info;
 	populate_debug_messenger_create_info(info);
-	if (func(m_instance, &info, nullptr, &m_debug_messenger) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to setup debug messenger");
-	}
+	return func(m_instance, &info, nullptr, &m_debug_messenger);
 }
 
 void VulkanInstance::destroy_debug_messenger() noexcept
@@ -209,12 +233,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanInstance::debug_callback(
 	return VK_FALSE;
 }
 
-void VulkanInstance::create_surface(GLFWwindow* window)
+VkResult VulkanInstance::create_surface(GLFWwindow* window) noexcept
 {
-	if (glfwCreateWindowSurface(m_instance, window, nullptr, &m_surface) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create surface!");
-	}
+	return glfwCreateWindowSurface(m_instance, window, nullptr, &m_surface);
 }
 
 VkInstance VulkanInstance::get() const noexcept
@@ -226,7 +247,8 @@ void VulkanInstance::cleanup() noexcept
 {
 	if (m_instance != VK_NULL_HANDLE)
 	{
-		m_device.cleanup();
+		m_swapchain->cleanup();
+		m_device->cleanup();
 		vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 		destroy_debug_messenger();
 		vkDestroyInstance(m_instance, nullptr);
