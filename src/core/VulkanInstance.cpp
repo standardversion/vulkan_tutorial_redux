@@ -13,8 +13,8 @@ static constexpr bool ENABLE_VALIDATION_LAYERS =
 #endif
 
 
-VulkanInstance::VulkanInstance(std::string_view app_name, uint32_t major, uint32_t minor, uint32_t patch)
-	: m_app_name{ app_name }, m_app_version{ VK_MAKE_VERSION(major, minor, patch) }
+VulkanInstance::VulkanInstance(const VulkanCfg& vulkan_cfg)
+	: m_config{ vulkan_cfg }
 {
 }
 
@@ -27,11 +27,11 @@ VkResult VulkanInstance::create_instance() noexcept
 {
 	VkApplicationInfo app_info{};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	app_info.pApplicationName = m_app_name.c_str();
-	app_info.applicationVersion = m_app_version;
-	app_info.pEngineName = "No Engine";
-	app_info.apiVersion = VK_API_VERSION_1_4;
-	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+	app_info.pApplicationName = m_config.app_info.name.c_str();
+	app_info.applicationVersion = VK_MAKE_VERSION(m_config.app_info.major, m_config.app_info.minor, m_config.app_info.patch);
+	app_info.pEngineName = m_config.app_info.engine_name.c_str();
+	app_info.apiVersion = m_config.app_info.vulkan_api_version;
+	app_info.engineVersion = VK_MAKE_VERSION(m_config.app_info.engine_major, m_config.app_info.engine_minor, m_config.app_info.engine_patch);
 
 	std::unordered_set<std::string> layer_names{ get_instance_layers_to_enable() };
 	std::vector<const char*> enabled_layer_names{};
@@ -95,13 +95,40 @@ void VulkanInstance::init(GLFWwindow* window)
 
 	VkPhysicalDevice physical_device{ m_device->get_physical_device() };
 	VkDevice device{ m_device->get_logical_device() };
-	m_swapchain = std::make_unique<VulkanSwapchain>(physical_device, device);
+	m_swapchain = std::make_unique<VulkanSwapchain>(physical_device, device, m_config.command_pool);
 	VkSurfaceFormatKHR surface_format{ m_device->pick_format() };
 	VkPresentModeKHR present_mode{ m_device->pick_present_mode() };
 	std::vector<uint32_t> queue_family_indices{m_device->get_queue_family_indices().get_indices()};
-	if (m_swapchain->create_swapchain(m_surface, surface_format, present_mode, queue_family_indices) != VK_SUCCESS)
+	if (m_swapchain->create(m_surface, surface_format, present_mode, queue_family_indices) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create swapchain!");
+	}
+	m_command_pool = std::make_unique<VulkanCommandPool>(device, queue_family_indices, m_config.command_pool);
+	std::unordered_map<uint32_t, VkResult> create_pool_results{ m_command_pool->create() };
+	for (const auto& [index, result] : create_pool_results)
+	{
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create command pool for queue index: " + std::to_string(index));
+		}
+	}
+	std::unordered_map<uint32_t, std::unordered_map<uint32_t, VkResult>> allocate_buffers_results{
+		m_command_pool->allocate_buffers() 
+	};
+	for (const auto& [queue_index, cmd_buffers_by_frame] : allocate_buffers_results)
+	{
+		for (const auto& [frame_index, result] : cmd_buffers_by_frame)
+		{
+			if (result != VK_SUCCESS)
+			{
+				throw std::runtime_error(
+					"Failed to allocate buffers for queue index: "
+					+ std::to_string(queue_index)
+					+ " frame index: "
+					+ std::to_string(frame_index)
+				);
+			}
+		}
 	}
 }
 
@@ -247,6 +274,7 @@ void VulkanInstance::cleanup() noexcept
 {
 	if (m_instance != VK_NULL_HANDLE)
 	{
+		m_command_pool->cleanup();
 		m_swapchain->cleanup();
 		m_device->cleanup();
 		vkDestroySurfaceKHR(m_instance, m_surface, nullptr);

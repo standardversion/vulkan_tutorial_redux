@@ -1,11 +1,12 @@
 #include "app/App.h"
+#include "app/Config.h"
 #include <GLFW/glfw3.h>
 #include <stdexcept>
 
-App::App(uint32_t w, uint32_t h, std::string m_title)
-	: m_width{ w }, m_height{ h }, m_title{ m_title }, m_instance{ "Vulkan App", 0, 1, 0 }
+App::App(const Config& config)
+	: m_config{ config }
 {
-	
+
 }
 
 App::~App()
@@ -25,13 +26,14 @@ void App::init()
 	monitor	The monitor to use for full screen mode, or NULL for windowed mode.
 	share	The window whose context to share resources with, or NULL to not share resources.
 	*/
-	m_window = glfwCreateWindow(m_width, m_height, m_title.c_str(), NULL, NULL);
+	m_window = glfwCreateWindow(m_config.window.width, m_config.window.height, m_config.window.title.c_str(), NULL, NULL);
 	if (!m_window)
 	{
 		throw std::runtime_error("Failed to create GLFW Window!");
 	}
 
-	m_instance.init(m_window);
+	m_instance = std::make_unique<VulkanInstance>(m_config.vulkan_cfg);
+	m_instance->init(m_window);
 }
 
 void App::run()
@@ -48,16 +50,6 @@ void App::cleanup() noexcept
 {
 	if (m_window) glfwDestroyWindow(m_window);
 	glfwTerminate();
-}
-
-uint32_t App::get_width() const noexcept
-{
-	return m_width;
-}
-
-uint32_t App::get_height() const noexcept
-{
-	return m_height;
 }
 
 void App::key_callback(GLFWwindow* m_window, int key, int scancode, int action, int mods)

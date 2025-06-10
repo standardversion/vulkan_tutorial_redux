@@ -1,10 +1,12 @@
 ﻿#include "app/App.h"
+#include "app/Config.h"
 #include <iostream>
 
 int main()
 {
 	try {
-		App app{ 600, 400, "Vulkan" };
+		Config cfg{};
+		App app{cfg};
 		app.init();
 		app.run();
 	}

@@ -1,12 +1,13 @@
 #include "core/VulkanSwapchain.h"
+#include "app/Config.h"
 #include <stdexcept>
 
-VulkanSwapchain::VulkanSwapchain(VkPhysicalDevice physical_device, VkDevice device)
-	: m_physical_device{ physical_device }, m_device{ device }
+VulkanSwapchain::VulkanSwapchain(VkPhysicalDevice physical_device, VkDevice device, const CommandPoolCfg& command_pool_cfg)
+	: m_physical_device{ physical_device }, m_device{ device }, m_config{ command_pool_cfg }
 { }
 
 
-VkResult VulkanSwapchain::create_swapchain(
+VkResult VulkanSwapchain::create(
 	VkSurfaceKHR surface,
 	VkSurfaceFormatKHR surface_format,
 	VkPresentModeKHR present_mode,
@@ -22,6 +23,8 @@ VkResult VulkanSwapchain::create_swapchain(
 	if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
 		image_count = capabilities.maxImageCount;
 	}
+	//This ensures the swapchain has enough images to keep up with your rendering pipeline
+	image_count = std::max(image_count, m_config.max_frames_in_flight);
 	create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	create_info.flags = NULL;
 	create_info.surface = surface;

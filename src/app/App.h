@@ -1,30 +1,28 @@
 #pragma once
 #include "core/VulkanInstance.h"
+#include "app/Config.h"
 #include <cstdint>
 #include <string>
+#include <memory>
 
 class GLFWwindow;
 
 class App
 {
 public:
-	App(uint32_t w, uint32_t h, std::string m_title);
+	App(const Config& config);
 	App(const App&) = delete;
 	App& operator=(const App&) = delete;
 	~App();
 	void init();
 	void run();
-	uint32_t get_width() const noexcept;
-	uint32_t get_height() const noexcept;
 
 	static void key_callback(GLFWwindow* m_window, int key, int scancode, int action, int mods);
 
 private:
-	uint32_t m_width;
-	uint32_t m_height;
-	std::string m_title;
+	Config m_config;
 	GLFWwindow* m_window{nullptr};
-	VulkanInstance m_instance;
+	std::unique_ptr<VulkanInstance> m_instance;
 
 	void cleanup() noexcept;
 };
