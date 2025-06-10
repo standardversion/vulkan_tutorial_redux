@@ -34,8 +34,6 @@ private:
 	VulkanCfg m_config;
 	VkInstance m_instance{ VK_NULL_HANDLE };
 	VkDebugUtilsMessengerEXT m_debug_messenger{ VK_NULL_HANDLE };
-	const std::vector<const char*> m_requested_validation_layers{ { "VK_LAYER_KHRONOS_validation" } };
-	const std::vector<const char*> m_requested_debug_extensions{ { VK_EXT_DEBUG_UTILS_EXTENSION_NAME } };
 	VkSurfaceKHR m_surface{ VK_NULL_HANDLE };
 	std::unique_ptr<VulkanDevice> m_device;
 	std::unique_ptr<VulkanSwapchain> m_swapchain;

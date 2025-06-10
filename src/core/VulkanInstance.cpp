@@ -5,14 +5,6 @@
 #include <unordered_set>
 #include <iostream>
 
-static constexpr bool ENABLE_VALIDATION_LAYERS =
-#ifdef NDEBUG
-	false;
-#else
-	true;
-#endif
-
-
 VulkanInstance::VulkanInstance(const VulkanCfg& vulkan_cfg)
 	: m_config{ vulkan_cfg }
 {
@@ -56,7 +48,7 @@ VkResult VulkanInstance::create_instance() noexcept
 	create_info.enabledExtensionCount = static_cast<uint32_t>(enabled_ext_names.size());
 	create_info.ppEnabledExtensionNames = enabled_ext_names.data();
 
-	if (ENABLE_VALIDATION_LAYERS)
+	if (m_config.instance_cfg.enable_validation_layers)
 	{
 		VkDebugUtilsMessengerCreateInfoEXT debug_msg_info{};
 		populate_debug_messenger_create_info(debug_msg_info);
@@ -145,18 +137,18 @@ std::unordered_set<std::string> VulkanInstance::get_instance_layers_to_enable() 
 {
 	std::vector<VkLayerProperties> layer_props{ get_instance_layer_properties() };
 	std::unordered_set<std::string> layer_names;
-	for (const auto& req_layer : m_requested_validation_layers)
+	for (const auto& req_layer : m_config.instance_cfg.validation_layers)
 	{
 		bool found{ false };
 		for (const auto& prop : layer_props)
 		{
-			if (ENABLE_VALIDATION_LAYERS && strcmp(prop.layerName, req_layer) == 0)
+			if (m_config.instance_cfg.enable_validation_layers && strcmp(prop.layerName, req_layer) == 0)
 			{
 				found = true;
 				layer_names.insert(prop.layerName);
 			}
 		}
-		if (ENABLE_VALIDATION_LAYERS && !found)
+		if (m_config.instance_cfg.enable_validation_layers && !found)
 		{
 			throw std::runtime_error("Validation layer: " + std::string(req_layer) + " not found");
 		}
@@ -196,9 +188,9 @@ std::unordered_set<std::string> VulkanInstance::get_instance_extensions_to_enabl
 		}
 	}
 
-	if (ENABLE_VALIDATION_LAYERS)
+	if (m_config.instance_cfg.enable_validation_layers)
 	{
-		for (const auto& req_ext : m_requested_debug_extensions)
+		for (const auto& req_ext : m_config.instance_cfg.debug_extensions)
 		{
 			bool found{ false };
 			for (const auto& prop : ext_props)
@@ -233,7 +225,7 @@ void VulkanInstance::populate_debug_messenger_create_info(VkDebugUtilsMessengerC
 
 VkResult VulkanInstance::setup_debug_messenger()
 {
-	if (!ENABLE_VALIDATION_LAYERS) return VK_SUCCESS;
+	if (!m_config.instance_cfg.enable_validation_layers) return VK_SUCCESS;
 	auto func{ (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT") };
 	VkDebugUtilsMessengerCreateInfoEXT info;
 	populate_debug_messenger_create_info(info);
@@ -242,7 +234,7 @@ VkResult VulkanInstance::setup_debug_messenger()
 
 void VulkanInstance::destroy_debug_messenger() noexcept
 {
-	if (!ENABLE_VALIDATION_LAYERS) return;
+	if (!m_config.instance_cfg.enable_validation_layers) return;
 	auto func{ (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT") };
 	func(m_instance, m_debug_messenger, nullptr);
 	m_debug_messenger = VK_NULL_HANDLE;

@@ -1,6 +1,7 @@
 #pragma once
 #include "vulkan/vulkan.h"
 #include <string>
+#include <vector>
 
 struct WindowCfg {
     uint32_t width{ 800 };
@@ -25,9 +26,23 @@ struct CommandPoolCfg {
     uint32_t buffers_per_frame{ 1 };
 };
 
+struct VulkanInstanceCfg {
+    std::vector<const char*> validation_layers{ { "VK_LAYER_KHRONOS_validation" } };
+    std::vector<const char*> debug_extensions{ { VK_EXT_DEBUG_UTILS_EXTENSION_NAME } };
+    bool enable_validation_layers;
+    VulkanInstanceCfg() {
+#ifdef NDEBUG
+        enable_validation_layers = false;
+#else
+        enable_validation_layers = true;
+#endif
+    }
+};
+
 struct VulkanCfg {
     AppInfo app_info;
     CommandPoolCfg command_pool;
+    VulkanInstanceCfg instance_cfg;
 };
 
 struct Config {
