@@ -3,7 +3,7 @@
 #include "vulkan/vulkan.h"
 #include <vector>
 #include <unordered_map>
-#include<span>
+#include <span>
 
 enum class CommandBufferState {
 	NotAllocated,
@@ -25,6 +25,16 @@ public:
 	VkResult begin_recording(uint32_t queue_family_index, uint32_t frame_index, uint32_t per_frame_buffer_index) noexcept;
 	VkResult end_recording(uint32_t queue_family_index, uint32_t frame_index, uint32_t per_frame_buffer_index) noexcept;
 	CommandBufferState get_state(uint32_t queue_index, uint32_t frame_index, uint32_t buffer_index) const noexcept;
+	VkResult submit(
+		VkQueue queue,
+		uint32_t queue_index,
+		uint32_t frame_index,
+		uint32_t buffer_index,
+		const std::vector<VkSemaphore>& wait_semaphores,
+		const std::vector<VkPipelineStageFlags>& wait_stages,
+		const std::vector<VkSemaphore>& signal_semaphores,
+		VkFence fence
+	) noexcept;
 	void cleanup() noexcept;
 private:
 	VkDevice m_device{ VK_NULL_HANDLE };

@@ -47,15 +47,71 @@ VkResult VulkanSwapchain::create(
 	}
 
 	VkResult result{ vkCreateSwapchainKHR(m_device, &create_info, nullptr, &m_swapchain) };
+	if (result == VK_SUCCESS)
+	{
+		uint32_t swapchain_image_count;
+		vkGetSwapchainImagesKHR(m_device, m_swapchain, &swapchain_image_count, nullptr);
+		m_images.resize(swapchain_image_count);
+		vkGetSwapchainImagesKHR(m_device, m_swapchain, &swapchain_image_count, m_images.data());
+		m_image_views.resize(swapchain_image_count);
+	}
 	return result;
+}
+
+std::vector<VkResult> VulkanSwapchain::create_image_views(VkSurfaceFormatKHR surface_format) noexcept
+{
+	std::vector<VkResult> results;
+	VkComponentMapping components{
+		.r =VK_COMPONENT_SWIZZLE_R,
+		.g = VK_COMPONENT_SWIZZLE_G,
+		.b = VK_COMPONENT_SWIZZLE_B,
+		.a = VK_COMPONENT_SWIZZLE_A
+	};
+	VkImageSubresourceRange subresource_range{
+		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.baseMipLevel = 0,
+		.levelCount = 1,
+		.baseArrayLayer = 0,
+		.layerCount = 1
+	};
+	for (size_t i{ 0 }; i < m_images.size(); i++)
+	{
+		VkImageViewCreateInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		info.flags = 0;
+		info.image = m_images[i];
+		info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		info.format = surface_format.format;
+		info.components = components;
+		info.subresourceRange = subresource_range;
+
+		results.push_back(vkCreateImageView(m_device, &info, nullptr, &m_image_views[i]));
+	}
+	return results;
+}
+
+const std::vector<VkImageView>& VulkanSwapchain::get_image_views() const noexcept
+{
+	return m_image_views;
+}
+
+const VkExtent2D VulkanSwapchain::get_extent() const noexcept
+{
+	return m_extent;
 }
 
 void VulkanSwapchain::cleanup() noexcept
 {
 	if (m_swapchain != VK_NULL_HANDLE && m_device != VK_NULL_HANDLE)
 	{
+		for (auto& image_view : m_image_views)
+		{
+			vkDestroyImageView(m_device, image_view, nullptr);
+		}
 		vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+		m_image_views.clear();
+		m_images.clear();
 		m_swapchain = VK_NULL_HANDLE;
+
 	}
-	
 }

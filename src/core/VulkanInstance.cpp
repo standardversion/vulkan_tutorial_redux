@@ -60,6 +60,7 @@ VkResult VulkanInstance::create_instance() noexcept
 
 void VulkanInstance::init(GLFWwindow* window)
 {
+	//VkInstance
 	if (create_instance() != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create Vulkan Instance!");
@@ -70,11 +71,12 @@ void VulkanInstance::init(GLFWwindow* window)
 		throw std::runtime_error("Failed to setup debug messenger");
 	}
 
+	//Surface
 	if (create_surface(window) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create surface!");
 	}
-
+	//Physical & Logical Devices, Graphics & Present Queues
 	m_device = std::make_unique<VulkanDevice>();
 	if (m_device->pick_physical_device(m_instance, m_surface) != VK_SUCCESS)
 	{
@@ -85,16 +87,27 @@ void VulkanInstance::init(GLFWwindow* window)
 		throw std::runtime_error("Failed to create a logical device!");
 	}
 
+	//Swapchain & Image Views
 	VkPhysicalDevice physical_device{ m_device->get_physical_device() };
 	VkDevice device{ m_device->get_logical_device() };
-	m_swapchain = std::make_unique<VulkanSwapchain>(physical_device, device, m_config.command_pool);
 	VkSurfaceFormatKHR surface_format{ m_device->pick_format() };
 	VkPresentModeKHR present_mode{ m_device->pick_present_mode() };
 	std::vector<uint32_t> queue_family_indices{m_device->get_queue_family_indices().get_indices()};
+	m_swapchain = std::make_unique<VulkanSwapchain>(physical_device, device, m_config.command_pool);
 	if (m_swapchain->create(m_surface, surface_format, present_mode, queue_family_indices) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create swapchain!");
 	}
+	std::vector<VkResult> create_image_views_results{ m_swapchain->create_image_views(surface_format) };
+	for (const auto& result : create_image_views_results)
+	{
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create image views!");
+		}
+	}
+
+	// Command Pool and Command Buffers
 	m_command_pool = std::make_unique<VulkanCommandPool>(device, queue_family_indices, m_config.command_pool);
 	std::unordered_map<uint32_t, VkResult> create_pool_results{ m_command_pool->create() };
 	for (const auto& [index, result] : create_pool_results)

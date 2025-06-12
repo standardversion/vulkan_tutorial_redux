@@ -132,6 +132,49 @@ CommandBufferState VulkanCommandPool::get_state(uint32_t queue_index, uint32_t f
 	return CommandBufferState::NotAllocated;
 }
 
+VkResult VulkanCommandPool::submit(
+	VkQueue queue,
+	uint32_t queue_index,
+	uint32_t frame_index,
+	uint32_t buffer_index,
+	const std::vector<VkSemaphore>& wait_semaphores,
+	const std::vector<VkPipelineStageFlags>& wait_stages,
+	const std::vector<VkSemaphore>& signal_semaphores,
+	VkFence fence
+) noexcept
+{
+	if (!m_cmd_buffers.contains(queue_index) || !m_cmd_buffers[queue_index].contains(frame_index)
+		|| buffer_index >= m_config.buffers_per_frame
+		|| m_cmd_buffer_states[queue_index][frame_index][buffer_index] != CommandBufferState::RecordingEnded)
+	{
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+	if (wait_semaphores.size() != wait_stages.size()) {
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
+	std::span<const VkCommandBuffer> buffers{ get_buffers(queue_index, frame_index) };
+	if (buffers.empty())
+	{
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+	VkCommandBuffer buffer{ buffers[buffer_index] };
+	VkSubmitInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	info.commandBufferCount = 1;
+	info.pCommandBuffers = &buffer;
+	info.signalSemaphoreCount = signal_semaphores.size();
+	info.pSignalSemaphores = signal_semaphores.data();
+	info.waitSemaphoreCount = wait_semaphores.size();
+	info.pWaitSemaphores = wait_semaphores.data();
+	info.pWaitDstStageMask = wait_stages.data();
+
+	std::vector<VkSubmitInfo> infos{ info };
+
+	VkResult result{ vkQueueSubmit(queue, 1, infos.data(), fence) };
+	return result;
+}
+
 std::vector<VkResult> VulkanCommandPool::reset_cmd_buffers(uint32_t queue_family_index, uint32_t frame_index) noexcept
 {
 	std::vector<VkResult> results;
