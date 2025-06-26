@@ -106,6 +106,25 @@ void VulkanInstance::init(GLFWwindow* window)
 			throw std::runtime_error("Failed to create image views!");
 		}
 	}
+	
+	//Render Pass
+	m_render_pass = std::make_unique<VulkanRenderPass>(device);
+	if (m_render_pass->create(surface_format.format) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create render pass!");
+	}
+
+	//Framebuffers
+	std::vector<VkImageView> image_views{ m_swapchain->get_image_views() };
+	VkExtent2D extent{ m_swapchain->get_extent() };
+	std::vector<VkResult> create_framebuffers_results{ m_render_pass->create_framebuffers(image_views, extent)};
+	for (const auto& result : create_framebuffers_results)
+	{
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create framebuffers!");
+		}
+	}
 
 	// Command Pool and Command Buffers
 	m_command_pool = std::make_unique<VulkanCommandPool>(device, queue_family_indices, m_config.command_pool);
@@ -280,6 +299,7 @@ void VulkanInstance::cleanup() noexcept
 	if (m_instance != VK_NULL_HANDLE)
 	{
 		m_command_pool->cleanup();
+		m_render_pass->cleanup();
 		m_swapchain->cleanup();
 		m_device->cleanup();
 		vkDestroySurfaceKHR(m_instance, m_surface, nullptr);

@@ -3,6 +3,7 @@
 #include "core/VulkanDevice.h"
 #include "core/VulkanSwapchain.h"
 #include "core/VulkanCommandPool.h"
+#include "rendering/VulkanRenderPass.h"
 #include "vulkan/vulkan.h"
 #include <GLFW/glfw3.h>
 #include <string>
@@ -38,6 +39,7 @@ private:
 	std::unique_ptr<VulkanDevice> m_device;
 	std::unique_ptr<VulkanSwapchain> m_swapchain;
 	std::unique_ptr<VulkanCommandPool> m_command_pool;
+	std::unique_ptr<VulkanRenderPass> m_render_pass;
 
 	[[nodiscard]] static std::vector<VkLayerProperties> get_instance_layer_properties() noexcept;
 	[[nodiscard]] std::unordered_set<std::string> get_instance_layers_to_enable() const;
