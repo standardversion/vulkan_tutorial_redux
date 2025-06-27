@@ -154,6 +154,14 @@ void VulkanInstance::init(GLFWwindow* window)
 			}
 		}
 	}
+
+	// Graphics Pipeline
+	m_graphics_pipeline = std::make_unique<VulkanGraphicsPipeline>(device);
+	VkResult create_graphics_pipeline_res{ m_graphics_pipeline->create(extent, m_render_pass->get_render_pass()) };
+	if (create_graphics_pipeline_res != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create graphics pipeline!");
+	}
 }
 
 std::vector<VkLayerProperties> VulkanInstance::get_instance_layer_properties() noexcept
@@ -298,6 +306,7 @@ void VulkanInstance::cleanup() noexcept
 {
 	if (m_instance != VK_NULL_HANDLE)
 	{
+		m_graphics_pipeline->cleanup();
 		m_command_pool->cleanup();
 		m_render_pass->cleanup();
 		m_swapchain->cleanup();

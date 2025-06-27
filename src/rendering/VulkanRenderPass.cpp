@@ -62,6 +62,11 @@ std::vector<VkResult> VulkanRenderPass::create_framebuffers(const std::vector<Vk
 	return results;
 }
 
+VkRenderPass VulkanRenderPass::get_render_pass() const noexcept
+{
+	return m_render_pass;
+}
+
 void VulkanRenderPass::cleanup() noexcept
 {
 	if (m_render_pass != VK_NULL_HANDLE && m_device != VK_NULL_HANDLE)

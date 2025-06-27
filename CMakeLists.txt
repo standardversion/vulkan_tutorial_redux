@@ -54,3 +54,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 target_link_libraries(${APP_TARGET} PRIVATE glm::glm)
+
+# Copy SPIR-V shaders to output directory after build
+file(GLOB SHADER_FILES "${CMAKE_SOURCE_DIR}/src/shaders/*.spv")
+
+foreach(SHADER_FILE ${SHADER_FILES})
+  add_custom_command(
+    TARGET ${APP_TARGET} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${SHADER_FILE}
+    $<TARGET_FILE_DIR:${APP_TARGET}>
+    COMMENT "Copying shader: ${SHADER_FILE}"
+  )
+endforeach()
